@@ -102,6 +102,7 @@ jobs:
       - name: Set up PostgreSQL
         uses: ankane/setup-postgres@v1
         with:
+          postgres-version: 18
           database: runner
         
       - name: Import schema into PostgreSQL
