@@ -101,12 +101,10 @@ jobs:
 
       - name: Set up PostgreSQL
         uses: ankane/setup-postgres@v1
-        with:
-          database: bilgaden
         
       - name: Import schema into PostgreSQL
         run: |
-          psql -f Bilgaden-PostgreSQL.sql bilgaden
+          psql -f Bilgaden-PostgreSQL.sql
 
       # - name: Tune PostgreSQL buffer pool size
       #   run: |
