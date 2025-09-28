@@ -163,7 +163,7 @@ jobs:
 
       - name: Install Go dependencies
         run: |
-          go mod tidy
+          go mod tidy # go mod download
 
       - name: Run PostgreSQL Go script
         run: |
