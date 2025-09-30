@@ -3,10 +3,6 @@ name: Runner (New)
 on:
   workflow_dispatch:
     inputs:
-      previous-filename-no-suffix:
-        description: 'Previous ESStatistikListeModtag Filename (No Suffix)'
-        required: true
-        type: string
       filename-no-suffix:
         description: 'ESStatistikListeModtag Filename (No Suffix)'
         required: true
@@ -145,7 +141,7 @@ jobs:
 
       - name: Dump the entire database
         run: |
-          pg_dump -d bilgaden | gzip > ${{ github.workspace }}/bilgaden.sql.gz
+          pg_dump -d bilgaden --no-owner --no-privileges | gzip > ${{ github.workspace }}/bilgaden.sql.gz
     
       - name: Archive SQL-file
         run: |
@@ -166,19 +162,19 @@ jobs:
         run: |
           pip install pymongo discord-webhook
 
-      # - name: Upload SQL-file to GitHub PostgreSQL-branch
-      #   working-directory: "${{ github.workspace }}/temp/"
-      #   run: |
-      #     mv ${{ github.workspace }}/bilgaden.sql.gz ${{ github.workspace }}/temp/bilgaden.sql.gz
-      #     mv ${{ github.workspace }}/Branch-GitHub.py ${{ github.workspace }}/temp/Branch-GitHub.py
+      - name: Upload SQL-file to GitHub PostgreSQL-branch
+        working-directory: "${{ github.workspace }}/temp/"
+        run: |
+          mv ${{ github.workspace }}/bilgaden.sql.gz ${{ github.workspace }}/temp/bilgaden.sql.gz
+          mv ${{ github.workspace }}/Branch-GitHub.py ${{ github.workspace }}/temp/Branch-GitHub.py
           
-      #     python ${{ github.workspace }}/temp/Branch-GitHub.py postgresql
-      #   env:
-      #     FILENAME: "bilgaden.sql.gz"
-      #     FILENAME_NO_SUFFIX: "${{ inputs.filename-no-suffix }}"
-      #     FILEPATH: "${{ github.workspace }}/temp/"
-      #     BRANCHNAME: "${{ inputs.filename-no-suffix }}.zip-postgresql"
-      #     GITHUB_UPLOAD_LIMIT: "${{ inputs.github-upload-limit }}"
+          python ${{ github.workspace }}/temp/Branch-GitHub.py postgresql
+        env:
+          FILENAME: "bilgaden.sql.gz"
+          FILENAME_NO_SUFFIX: "${{ inputs.filename-no-suffix }}"
+          FILEPATH: "${{ github.workspace }}/temp/"
+          BRANCHNAME: "${{ inputs.filename-no-suffix }}.zip-postgresql"
+          GITHUB_UPLOAD_LIMIT: "${{ inputs.github-upload-limit }}"
 
       - name: Upload SQL-file to Discord
         run: |
