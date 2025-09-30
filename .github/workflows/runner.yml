@@ -19,22 +19,6 @@ on:
         description: 'GitHub Upload Limit (In MiB)'
         required: true
         type: string
-      worker-count:
-        description: 'PostgreSQL - Worker Count'
-        required: true
-        type: string
-      start-count:
-        description: 'PostgreSQL - Start Count'
-        required: true
-        type: string
-      step-count:
-        description: 'PostgreSQL - Step Count'
-        required: true
-        type: string
-      runner-number:
-        description: 'PostgreSQL - Runner Number State'
-        required: true
-        type: string
 
 jobs:
   mysql:
@@ -52,14 +36,6 @@ jobs:
           echo "platform:       $(uname -s)"
           echo "release:        $(grep '^VERSION_ID=' /etc/os-release | head -1 | cut -d= -f2- | tr -d '\"')"
           echo "total-memory:   $(grep MemTotal /proc/meminfo | awk '{print $2 * 1024}')"
-
-      - name: Set environment variables
-        run: |
-          echo "PREV_RUNNER=$(( ${{ inputs.runner-number }} - 1 ))" >> $GITHUB_ENV
-          echo "NEXT_RUNNER=$(( ${{ inputs.runner-number }} + 1 ))" >> $GITHUB_ENV
-          echo "NEXT_START_COUNT=$(( ${{ inputs.start-count }} + ${{ inputs.step-count }} ))" >> $GITHUB_ENV
-          echo "NEXT_STEP_COUNT=$(( ${{ inputs.step-count }} - 500000 ))" >> $GITHUB_ENV
-          echo "XML_PARSE_COMPLETE=false" >> $GITHUB_ENV
           
       - name: Maximize build space
         uses: AdityaGarg8/remove-unwanted-software@v5
@@ -107,11 +83,7 @@ jobs:
         
       - name: Import schema into PostgreSQL
         run: |
-          psql -f Bilgaden-PostgreSQL.sql
-
-      # - name: Tune PostgreSQL buffer pool size
-      #   run: |
-      #     /usr/bin/mariadb -e "SET GLOBAL innodb_buffer_pool_size = 14 * 1024 * 1024 * 1024;"
+          psql -q -f Bilgaden-PostgreSQL.sql
 
       - name: Stitch ESStatistikListeModtag back together
         run: |
@@ -120,41 +92,41 @@ jobs:
           
           rm -rf ${{ github.workspace }}/temp/
 
-      # - name: Checkout ESStatistikListeModtag repository (PostgreSQL-branch)
-      #   uses: actions/checkout@v4
-      #   with:
-      #     repository: "${{ github.repository_owner }}/${{ inputs.filename-no-suffix }}"
-      #     ref: "mysql"
-      #     path: "${{ github.workspace }}/temp/"
-      #     sparse-checkout: |
-      #       !/*
-      #     sparse-checkout-cone-mode: false
-      #     token: "${{ secrets.PAT }}"
+      - name: Checkout ESStatistikListeModtag repository (PostgreSQL-branch)
+        uses: actions/checkout@v4
+        with:
+          repository: "${{ github.repository_owner }}/${{ inputs.filename-no-suffix }}"
+          ref: "postgresql"
+          path: "${{ github.workspace }}/temp/"
+          sparse-checkout: |
+            !/*
+          sparse-checkout-cone-mode: false
+          token: "${{ secrets.PAT }}"
 
-      # - name: Set up Git for temporary files
-      #   working-directory: "${{ github.workspace }}/temp/"
-      #   run: |
-      #     gh auth login --with-token <<< "${{ secrets.PAT }}"
+      - name: Set up Git
+        working-directory: "${{ github.workspace }}/temp/"
+        run: |
+          gh auth login --with-token <<< "${{ secrets.PAT }}"
 
-      #     git config --global user.name "github-actions[bot]"
-      #     git config --global user.email "github-actions[bot]@users.noreply.github.com"
-      #     git config --global http.postBuffer 104857600
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global http.postBuffer 104857600
           
-      #     if git ls-remote --exit-code --heads origin mysql-temp-${{ inputs.runner-number }}; then
-      #         echo "Branch 'mysql-temp-${{ inputs.runner-number }}' already exists, deleting and recreating..."
+          if git ls-remote --exit-code --heads origin ${{ inputs.filename-no-suffix }}.zip-postgresql; then
+              echo "Branch '${{ inputs.filename-no-suffix }}.zip-postgresql' already exists, deleting and recreating..."
               
-      #         if git show-ref --verify --quiet refs/heads/mysql-temp-${{ inputs.runner-number }}; then
-      #             git branch -D mysql-temp-${{ inputs.runner-number }}
-      #         fi
-      #         git push origin --delete mysql-temp-${{ inputs.runner-number }}
-      #         git checkout -b mysql-temp-${{ inputs.runner-number }}
-      #     else
-      #         echo "Branch 'mysql-temp-${{ inputs.runner-number }}' does not exist, creating..."
+              if git show-ref --verify --quiet refs/heads/${{ inputs.filename-no-suffix }}.zip-postgresql; then
+                  git branch -D ${{ inputs.filename-no-suffix }}.zip-postgresql
+              fi
+              git push origin --delete ${{ inputs.filename-no-suffix }}.zip-postgresql
+              git checkout -b ${{ inputs.filename-no-suffix }}.zip-postgresql
+          else
+              echo "Branch '${{ inputs.filename-no-suffix }}.zip-postgresql' does not exist, creating..."
               
-      #         git checkout -b mysql-temp-${{ inputs.runner-number }}
-      #     fi
+              git checkout -b ${{ inputs.filename-no-suffix }}.zip-postgresql
+          fi
 
-      #     git push -u origin mysql-temp-${{ inputs.runner-number }}
+          git push -u origin ${{ inputs.filename-no-suffix }}.zip-postgresql
 
       - name: Install Go
         uses: actions/setup-go@v5
@@ -163,50 +135,53 @@ jobs:
 
       - name: Install Go dependencies
         run: |
-          go mod tidy # go mod download
+          go mod tidy
 
       - name: Run PostgreSQL Go script
         run: |
           go run ${{ github.workspace }}/PostgreSQL-GitHub.go
 
           rm -f "${{ github.workspace }}/${{ inputs.filename-no-suffix }}.zip"
-        env:
-          NUMBER_OF_WORKERS: ${{ inputs.worker-count }}
-          START_COUNT: ${{ inputs.start-count }}
-          END_COUNT: ${{ env.NEXT_START_COUNT }}
 
-      # - name: Dump the entire database
-      #   run: |
-      #     /usr/bin/mariadb-dump --no-create-db --databases bilgaden | gzip > ${{ github.workspace }}/bilgaden.sql.gz
+      - name: Dump the entire database
+        run: |
+          pg_dump -d bilgaden | gzip > ${{ github.workspace }}/bilgaden.sql.gz
     
-      # - name: Split SQL-file into temp-directory
-      #   run: |
-      #     split -d -b ${{ inputs.github-upload-limit }}m ${{ github.workspace }}/bilgaden.sql.gz ${{ github.workspace }}/temp/${{ inputs.filename-no-suffix }}.sql.gz.part
+      - name: Archive SQL-file
+        run: |
+          mkdir -p ${{ github.workspace }}/postgresql-zip
+          zip -j -r -s ${{ inputs.discord-upload-limit }}m ${{ github.workspace }}/postgresql-zip/${{ inputs.filename-no-suffix }}.sql.gz.zip ${{ github.workspace }}/bilgaden.sql.gz
 
-      # - name: Upload SQL-file to GitHub PostgreSQL-temp-branch
+      - name: Split SQL-file
+        run: |
+          mkdir -p ${{ github.workspace }}/postgresql-split
+          split -d -b ${{ inputs.discord-upload-limit }}m ${{ github.workspace }}/bilgaden.sql.gz ${{ github.workspace }}/postgresql-split/${{ inputs.filename-no-suffix }}.sql.gz.part
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Python dependencies
+        run: |
+          pip install pymongo discord-webhook
+
+      # - name: Upload SQL-file to GitHub PostgreSQL-branch
       #   working-directory: "${{ github.workspace }}/temp/"
       #   run: |
-      #     git add --sparse .
-      #     git commit -m "Uploaded mysql-temp-${{ inputs.runner-number }}"
-      #     git push
+      #     mv ${{ github.workspace }}/bilgaden.sql.gz ${{ github.workspace }}/temp/bilgaden.sql.gz
+      #     mv ${{ github.workspace }}/Branch-GitHub.py ${{ github.workspace }}/temp/Branch-GitHub.py
+          
+      #     python ${{ github.workspace }}/temp/Branch-GitHub.py postgresql
+      #   env:
+      #     FILENAME: "bilgaden.sql.gz"
+      #     FILENAME_NO_SUFFIX: "${{ inputs.filename-no-suffix }}"
+      #     FILEPATH: "${{ github.workspace }}/temp/"
+      #     BRANCHNAME: "${{ inputs.filename-no-suffix }}.zip-postgresql"
+      #     GITHUB_UPLOAD_LIMIT: "${{ inputs.github-upload-limit }}"
 
-      # - name: Trigger next Runner
-      #   uses: actions/github-script@v7
-      #   with:
-      #     script: |
-      #       await github.rest.actions.createWorkflowDispatch({
-      #         owner: context.repo.owner,
-      #         repo: 'ESStatistikListeParser-Runner',
-      #         workflow_id: 'runner-mysql.yml',
-      #         ref: 'main',
-      #         inputs: {
-      #           'filename-no-suffix': '${{ inputs.filename-no-suffix }}',
-      #           'discord-upload-limit': '${{ inputs.discord-upload-limit }}',
-      #           'github-upload-limit': '${{ inputs.github-upload-limit }}',
-      #           'worker-count': '${{ inputs.worker-count }}',
-      #           'start-count': '${{ env.NEXT_START_COUNT }}',
-      #           'step-count': '${{ env.NEXT_STEP_COUNT }}',
-      #           'runner-number': '${{ env.NEXT_RUNNER }}'
-      #         }
-      #       })
-      #     github-token: ${{ secrets.PAT }}
+      - name: Upload SQL-file to Discord
+        run: |
+          python ${{ github.workspace }}/UploadToDiscord-GitHub.py postgresql
+        env:
+          FILENAME: "${{ inputs.filename-no-suffix }}.sql.gz"
