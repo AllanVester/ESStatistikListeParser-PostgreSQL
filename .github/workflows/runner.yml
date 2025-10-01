@@ -142,6 +142,8 @@ jobs:
       - name: Dump the entire database
         run: |
           pg_dump -d bilgaden --no-owner --no-privileges | gzip > ${{ github.workspace }}/bilgaden.sql.gz
+
+          dropdb --force bilgaden
     
       - name: Archive SQL-file
         run: |
