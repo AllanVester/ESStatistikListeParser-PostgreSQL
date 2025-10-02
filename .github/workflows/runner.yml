@@ -141,19 +141,19 @@ jobs:
 
       - name: Dump the entire database
         run: |
-          pg_dump -d bilgaden --no-owner --no-privileges | gzip > ${{ github.workspace }}/bilgaden.sql.gz
+          pg_dump --no-owner --no-privileges -Fc -d bilgaden > ${{ github.workspace }}/bilgaden.dump.pgsql
 
           dropdb --force bilgaden
     
       - name: Archive SQL-file
         run: |
           mkdir -p ${{ github.workspace }}/postgresql-zip
-          zip -j -r -s ${{ inputs.discord-upload-limit }}m ${{ github.workspace }}/postgresql-zip/${{ inputs.filename-no-suffix }}.sql.gz.zip ${{ github.workspace }}/bilgaden.sql.gz
+          zip -j -r -s ${{ inputs.discord-upload-limit }}m ${{ github.workspace }}/postgresql-zip/${{ inputs.filename-no-suffix }}.dump.pgsql.zip ${{ github.workspace }}/bilgaden.dump.pgsql
 
       - name: Split SQL-file
         run: |
           mkdir -p ${{ github.workspace }}/postgresql-split
-          split -d -b ${{ inputs.discord-upload-limit }}m ${{ github.workspace }}/bilgaden.sql.gz ${{ github.workspace }}/postgresql-split/${{ inputs.filename-no-suffix }}.sql.gz.part
+          split -d -b ${{ inputs.discord-upload-limit }}m ${{ github.workspace }}/bilgaden.dump.pgsql ${{ github.workspace }}/postgresql-split/${{ inputs.filename-no-suffix }}.dump.pgsql.part
 
       - name: Install Python
         uses: actions/setup-python@v5
@@ -164,22 +164,22 @@ jobs:
         run: |
           pip install pymongo discord-webhook
 
-      - name: Upload SQL-file to GitHub PostgreSQL-branch
-        working-directory: "${{ github.workspace }}/temp/"
-        run: |
-          mv ${{ github.workspace }}/bilgaden.sql.gz ${{ github.workspace }}/temp/bilgaden.sql.gz
-          mv ${{ github.workspace }}/Branch-GitHub.py ${{ github.workspace }}/temp/Branch-GitHub.py
-          
-          python ${{ github.workspace }}/temp/Branch-GitHub.py postgresql
-        env:
-          FILENAME: "bilgaden.sql.gz"
-          FILENAME_NO_SUFFIX: "${{ inputs.filename-no-suffix }}"
-          FILEPATH: "${{ github.workspace }}/temp/"
-          BRANCHNAME: "${{ inputs.filename-no-suffix }}.zip-postgresql"
-          GITHUB_UPLOAD_LIMIT: "${{ inputs.github-upload-limit }}"
+      # - name: Upload SQL-file to GitHub PostgreSQL-branch
+      #  working-directory: "${{ github.workspace }}/temp/"
+      #  run: |
+      #    mv ${{ github.workspace }}/bilgaden.dump.pgsql ${{ github.workspace }}/temp/bilgaden.dump.pgsql
+      #    mv ${{ github.workspace }}/Branch-GitHub.py ${{ github.workspace }}/temp/Branch-GitHub.py
+      #    
+      #    python ${{ github.workspace }}/temp/Branch-GitHub.py postgresql
+      #  env:
+      #    FILENAME: "bilgaden.dump.pgsql"
+      #    FILENAME_NO_SUFFIX: "${{ inputs.filename-no-suffix }}"
+      #    FILEPATH: "${{ github.workspace }}/temp/"
+      #    BRANCHNAME: "${{ inputs.filename-no-suffix }}.zip-postgresql"
+      #    GITHUB_UPLOAD_LIMIT: "${{ inputs.github-upload-limit }}"
 
       - name: Upload SQL-file to Discord
         run: |
           python ${{ github.workspace }}/UploadToDiscord-GitHub.py postgresql
         env:
-          FILENAME: "${{ inputs.filename-no-suffix }}.sql.gz"
+          FILENAME: "${{ inputs.filename-no-suffix }}.dump.pgsql"
