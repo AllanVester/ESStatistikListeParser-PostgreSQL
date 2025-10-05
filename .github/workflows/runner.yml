@@ -165,18 +165,18 @@ jobs:
           pip install pymongo discord-webhook
 
       - name: Upload SQL-file to GitHub PostgreSQL-branch
-       working-directory: "${{ github.workspace }}/temp/"
-       run: |
-         mv ${{ github.workspace }}/bilgaden.dump.gz ${{ github.workspace }}/temp/bilgaden.dump.gz
-         mv ${{ github.workspace }}/Branch-GitHub.py ${{ github.workspace }}/temp/Branch-GitHub.py
-         
-         python ${{ github.workspace }}/temp/Branch-GitHub.py postgresql
-       env:
-         FILENAME: "bilgaden.dump.gz"
-         FILENAME_NO_SUFFIX: "${{ inputs.filename-no-suffix }}"
-         FILEPATH: "${{ github.workspace }}/temp/"
-         BRANCHNAME: "${{ inputs.filename-no-suffix }}.zip-postgresql"
-         GITHUB_UPLOAD_LIMIT: "${{ inputs.github-upload-limit }}"
+        working-directory: "${{ github.workspace }}/temp/"
+        run: |
+          mv ${{ github.workspace }}/bilgaden.dump.gz ${{ github.workspace }}/temp/bilgaden.dump.gz
+          mv ${{ github.workspace }}/Branch-GitHub.py ${{ github.workspace }}/temp/Branch-GitHub.py
+          
+          python ${{ github.workspace }}/temp/Branch-GitHub.py postgresql
+        env:
+          FILENAME: "bilgaden.dump.gz"
+          FILENAME_NO_SUFFIX: "${{ inputs.filename-no-suffix }}"
+          FILEPATH: "${{ github.workspace }}/temp/"
+          BRANCHNAME: "${{ inputs.filename-no-suffix }}.zip-postgresql"
+          GITHUB_UPLOAD_LIMIT: "${{ inputs.github-upload-limit }}"
 
       - name: Upload SQL-file to Discord
         run: |
